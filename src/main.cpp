@@ -5,39 +5,15 @@
 #include <Adafruit_TCS34725.h>
 #include <ESP32Servo.h>
 
-/*
-  ROBOT CANDIDATES 2026
-  ESP32-WROOM-32 + L298N + 4 TT motors + 3 HC-SR04P
-  + TCRT5000 3-channel + TCS34725 + LCD 20x4 + servo.
-
-  IMPORTANT:
-  - This is an ADVANCE VERSION intended to be calibrated on the real robot.
-  - It deliberately does NOT include the optional ArUco or return-path bonuses.
-  - ACTIVE_TRACK selects which competition track the robot runs.
-  - No track layout is hard-coded. The maze/navigation logic builds information
-    dynamically from the ultrasonic sensors.
-  - The robot has no wheel encoders in the current schematic, so distances and
-    90-degree turns are time-calibrated. These values MUST be calibrated.
-*/
-
-// ============================================================
-// 1. SELECT TRACK / MODE
-// ============================================================
 
 #define TRACK_A 1
 #define TRACK_B 2
 
-// Change ONLY this before the round/calibration period.
+
 #define ACTIVE_TRACK TRACK_A
 
-// Set to 1 while developing to print color and line sensor data.
-// Set to 0 for autonomous competition operation.
+
 #define CALIBRATION_MODE 0
-
-
-// ============================================================
-// 2. MOTOR PINS - CURRENT SCHEMATIC
-// ============================================================
 
 #define PIN_ENA 14
 #define PIN_IN1 27
@@ -47,15 +23,12 @@
 #define PIN_IN3 26
 #define PIN_IN4 33
 
-// If one side is physically reversed, change one of these to true.
-// This is NOT a substitute for wiring the two motors on each side correctly.
+
 #define INVERT_LEFT  false
 #define INVERT_RIGHT false
 
 
-// ============================================================
-// 3. ULTRASONIC PINS
-// ============================================================
+
 
 #define TRIG_LEFT   18
 #define ECHO_LEFT   34
@@ -66,29 +39,16 @@
 #define TRIG_RIGHT  21
 #define ECHO_RIGHT  35
 
-// HC-SR04P should be powered according to its exact module specification.
-// For the user's stated wide-voltage HC-SR04P, 3.3 V operation is intended.
-// Do NOT feed a 5 V ECHO into an ESP32 GPIO.
 
-
-/*
-  Approximate wall threshold.
-
-  A unit is 30 cm wide. When the robot is centered, a wall is normally
-  around half a unit away. This value MUST be calibrated on the real robot.
-*/
 const float WALL_DISTANCE_CM = 22.0;
 
 
-// ============================================================
-// 4. I2C
-// ============================================================
+
 
 #define I2C_SDA 22
 #define I2C_SCL 23
 
-// Common LCD backpacks use 0x27 or 0x3F.
-// Change after running the I2C scanner/calibration.
+
 #define LCD_ADDRESS 0x27
 
 LiquidCrystal_I2C lcd(LCD_ADDRESS, 20, 4);
@@ -99,9 +59,6 @@ Adafruit_TCS34725 tcs(
 );
 
 
-// ============================================================
-// 5. SERVO / GRIPPER
-// ============================================================
 
 #define SERVO_PIN 5
 
@@ -111,42 +68,23 @@ const int SERVO_OPEN_ANGLE  = 55;
 const int SERVO_CLOSE_ANGLE = 125;
 
 
-// ============================================================
-// 6. 3-CHANNEL LINE FOLLOWER / LINE AVOIDER
-// ============================================================
+
 
 #define LINE_LEFT   4
 #define LINE_CENTER 16
 #define LINE_RIGHT  17
 
-/*
-  Many TCRT5000 modules output LOW over the detected line and HIGH otherwise.
-  If your module behaves opposite, change LOW to HIGH.
-*/
+
 #define LINE_WHITE_LEVEL LOW
 
 int lastLineCorrection = 0; // -1 = left, +1 = right
 
 
-// ============================================================
-// 7. IR SENSORS FROM CURRENT SCHEMATIC
-// ============================================================
 
 #define IR_1 15
 #define IR_2 2
 
 
-// ============================================================
-// 8. MOVEMENT CALIBRATION
-// ============================================================
-
-/*
-  These values are starting points only.
-
-  TT motors are specified as 115 RPM at 6 V without load.
-  Real speed changes with battery voltage, L298N losses, load, floor,
-  wheel diameter and PWM. Therefore these values MUST be measured.
-*/
 
 const int BASE_SPEED = 145;
 const int TURN_SPEED = 145;
@@ -157,9 +95,6 @@ const unsigned long TURN_90_MS       = 430;
 const unsigned long SHORT_FORWARD_MS = 250;
 
 
-// ============================================================
-// 9. COLORS
-// ============================================================
 
 enum ColorName {
   COLOR_UNKNOWN,
@@ -182,9 +117,7 @@ struct RGBSample {
 };
 
 
-// ============================================================
-// 10. GRID / HEADING
-// ============================================================
+
 
 enum Heading {
   NORTH = 0,
@@ -209,9 +142,6 @@ int robotY = MAP_CENTER;
 Heading heading = NORTH;
 
 
-// ============================================================
-// 11. BASIC MOTOR FUNCTIONS
-// ============================================================
 
 void setLeftDirection(bool forward) {
   if (INVERT_LEFT) forward = !forward;
@@ -281,10 +211,6 @@ void turnRightInPlace(int speed = TURN_SPEED) {
 }
 
 
-// ============================================================
-// 12. MOVEMENT WITH TIME CALIBRATION
-// ============================================================
-
 void moveOneCell() {
   forward(BASE_SPEED);
   delay(CELL_FORWARD_MS);
@@ -329,9 +255,6 @@ void faceHeading(Heading target) {
 }
 
 
-// ============================================================
-// 13. ULTRASONICS
-// ============================================================
 
 float readDistanceCM(uint8_t trigPin, uint8_t echoPin) {
   digitalWrite(trigPin, LOW);
@@ -379,9 +302,6 @@ bool wallAtRelativeRight() {
 }
 
 
-// ============================================================
-// 14. GRID HELPERS
-// ============================================================
 
 bool insideMap(int x, int y) {
   return x >= 0 && x < MAP_SIZE && y >= 0 && y < MAP_SIZE;
@@ -445,10 +365,7 @@ void markWall(int x, int y, Heading d, bool wall) {
 }
 
 void measureWallsAtCurrentCell() {
-  /*
-    We measure front, left, right, then turn around to measure the rear,
-    then restore the original heading.
-  */
+  
 
   bool frontWall = wallAtRelativeFront();
   bool leftWall  = wallAtRelativeLeft();
@@ -508,10 +425,6 @@ void moveToNeighbor(Heading target) {
   updateLogicalPosition(target);
 }
 
-
-// ============================================================
-// 15. COLOR SENSOR
-// ============================================================
 
 RGBSample readColorSample() {
   float r, g, b;
@@ -690,10 +603,7 @@ void lineAvoidanceStep() {
   }
 }
 
-
-// ============================================================
-// 17. GRIPPER
-// ============================================================
+ 
 
 void gripperOpen() {
   gripper.write(SERVO_OPEN_ANGLE);
@@ -706,12 +616,7 @@ void gripperClose() {
 }
 
 bool approachBallAndGrab() {
-  /*
-    Advance version:
-    the front ultrasonic is used to find an object in front.
-    Because walls can also be detected, this MUST be calibrated with
-    the real gripper geometry.
-  */
+ 
 
   gripperOpen();
 
@@ -743,9 +648,7 @@ bool approachBallAndGrab() {
 }
 
 
-// ============================================================
-// 18. DISPLAY / STARTUP
-// ============================================================
+
 
 void lcdMessage(const char* line1, const char* line2 = "") {
   lcd.clear();
@@ -768,9 +671,7 @@ void startupDisplay() {
 }
 
 
-// ============================================================
-// 19. PISTA A - MAZE
-// ============================================================
+
 
 bool colorAlreadyCounted[4] = {false, false, false, false};
 
@@ -807,16 +708,7 @@ bool mazeHasUnvisitedNeighbor() {
 }
 
 Heading chooseMazeNeighbor() {
-  /*
-    DFS-style exploration:
-    1. forward
-    2. right
-    3. left
-    4. rear
-
-    The map is built dynamically. No wall/color layout is preloaded.
-  */
-
+ 
   if (accessibleAndUnvisited(heading)) return heading;
   if (accessibleAndUnvisited(rightOf(heading))) return rightOf(heading);
   if (accessibleAndUnvisited(leftOf(heading))) return leftOf(heading);
@@ -898,18 +790,11 @@ void runMaze() {
 }
 
 
-// ============================================================
-// 20. PISTA B - SECTION 1
-// ============================================================
 
 bool candidateBallCell() {
   int walls = countKnownWalls(robotX, robotY);
 
-  /*
-    The ball is placed in the central unit and that unit has three
-    walls blocking entry, leaving one free side. This is the geometric
-    clue used here.
-  */
+ 
   return walls >= 3;
 }
 
@@ -984,9 +869,6 @@ bool findBallInSection1() {
 }
 
 
-// ============================================================
-// 21. PISTA B - FIND CHECKPOINT 1
-// ============================================================
 
 bool navigateToRedCheckpoint(int maxSteps) {
   for (int step = 0; step < maxSteps; step++) {
@@ -1041,18 +923,12 @@ bool navigateToRedCheckpoint(int maxSteps) {
 }
 
 
-// ============================================================
-// 22. PISTA B - SECTION 2
-// ============================================================
 
 void runSection2() {
   lcdMessage("PISTA B", "SECCION 2");
   delay(500);
 
-  /*
-    The section is a 2x4 green grid with white lines.
-    The robot should use the 3-channel TCRT5000 to avoid the white lines.
-  */
+  
 
   const unsigned long MAX_SECTION_TIME = 120000UL;
   unsigned long start = millis();
@@ -1078,20 +954,9 @@ void runSection2() {
 }
 
 
-// ============================================================
-// 23. PISTA B - SECTION 3
-// ============================================================
 
 Heading directionFromTile(ColorName c) {
-  /*
-    Exact mapping from Reglamento, Imagen 2.6:
-      CIAN    -> derecha
-      AMARILLO-> izquierda
-      NARANJA -> arriba
-      ROSA    -> abajo
-
-    Directions are ABSOLUTE TO THE TRACK, not relative to the robot.
-  */
+  
 
   if (c == COLOR_CYAN)   return EAST;
   if (c == COLOR_YELLOW) return WEST;
@@ -1119,7 +984,7 @@ void runSection3() {
     }
 
     if (c == COLOR_RED) {
-      // We may still be on the checkpoint transition.
+     
       stopMotors();
       delay(300);
       continue;
@@ -1140,10 +1005,7 @@ void runSection3() {
 
       delay(150);
     } else {
-      /*
-        Unknown tile:
-        move very slowly instead of making an arbitrary turn.
-      */
+      
       stopMotors();
       delay(120);
     }
@@ -1154,9 +1016,7 @@ void runSection3() {
 }
 
 
-// ============================================================
-// 24. PISTA B
-// ============================================================
+
 
 void runTrackB() {
   lcdMessage("PISTA B", "SECCION 1");
@@ -1165,15 +1025,10 @@ void runTrackB() {
   bool ballTaken = findBallInSection1();
 
   if (!ballTaken) {
-    /*
-      Even without the ball, continue toward checkpoint 1.
-      This can still obtain the corresponding checkpoint points.
-    */
+    
     navigateToRedCheckpoint(60);
   } else {
-    /*
-      Continue searching until the red checkpoint.
-    */
+    
     navigateToRedCheckpoint(80);
   }
 
@@ -1185,9 +1040,6 @@ void runTrackB() {
 }
 
 
-// ============================================================
-// 25. CALIBRATION MODE
-// ============================================================
 
 void runCalibration() {
   stopMotors();
@@ -1231,9 +1083,6 @@ void runCalibration() {
 }
 
 
-// ============================================================
-// 26. SETUP
-// ============================================================
 
 void setup() {
 
@@ -1318,9 +1167,6 @@ void setup() {
 }
 
 
-// ============================================================
-// 27. LOOP
-// ============================================================
 
 void loop() {
 
@@ -1336,7 +1182,7 @@ void loop() {
 
   lcdMessage("RONDA TERMINADA", "MOTORES OFF");
 
-  // Do not automatically restart the track.
+  
   while (true) {
     stopMotors();
     delay(1000);
